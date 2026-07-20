@@ -2672,15 +2672,18 @@ function bs(){
     alternatives — the best guy at each OTHER position. Same depth as the
     headline, because "why not him instead?" is the actual question. */
  {
-  const alts = rows.filter(x=>x.score > -1e8).slice(1, altN);
+  /* ranked as individuals, not one-per-position — see topPlayers() */
+  const alts = topPlayers(m, altN, r)
+                 .filter(p=>p[0] !== top.now[0])
+                 .slice(0, altN - 1);
   if(alts.length){
    h += `<div class="plnsec">Other options
      <span class="altn">
       <button class="anb ${altN===3?'on':''}" onclick="setAltN(3)">top 3</button>
       <button class="anb ${altN===5?'on':''}" onclick="setAltN(5)">top 5</button>
      </span></div>`;
-   alts.forEach((x,i)=>{
-    h += scoutHtml(x.now, m, {row:x, rec:r, label:`#${i+2} OPTION`});
+   alts.forEach((p2,i)=>{
+    h += scoutHtml(p2, m, {rec:r, label:`#${i+2} OPTION`});
    });
   }
  }
@@ -2916,6 +2919,32 @@ function rowFor(ti, p){
  };
 }
 
+/* THE BEST PLAYERS AVAILABLE, as players.
+
+   bestPick() keeps one scored row per POSITION, which is the right shape for
+   "which position do I take now?" but the wrong shape for "show me the top
+   five guys" — there are only six positions, and early on the engine rules
+   out QB/K/DEF outright, so a position-based list caps out at three.
+   This ranks individuals using the same two terms that carry the engine's
+   own score: what he adds to my starting lineup, and what he beats a
+   replacement starter by. Positions the engine has ruled out stay ruled out. */
+function topPlayers(ti, n, rec){
+ const alive = new Set(rec.rows.filter(r=>r.score > -1e8).map(r=>r.ps));
+ const byPos = {};
+ av().filter(p=>alive.has(p[3]) && legal(ti,p[3]) && !isTrap(p))
+     .forEach(p=>{ (byPos[p[3]] = byPos[p[3]] || []).push(p) });
+ /* nobody outside the front of a position is winning this, so only score the
+    top few per spot rather than all 290 available players */
+ const cands = [];
+ Object.values(byPos).forEach(list=>{
+  list.sort((a,b)=>PROJ(b)-PROJ(a)).slice(0, n).forEach(p=>cands.push(p));
+ });
+ return cands
+   .map(p=>({p, s: lineupGain(ti,p) + VOR(p)*0.42}))
+   .sort((a,b)=>b.s-a.s)
+   .map(x=>x.p);
+}
+
 /* The full read for one player.
    opts.row   — a reasoning row bestPick() already built. Pass it when you
                 have one: rowFor() re-runs survivesToNextPick/lineupGain, and
@@ -2932,6 +2961,10 @@ function scoutHtml(p, ti, opts){
  const nowPts  = Math.round(PROJ(p));
  const latePts = row.later ? Math.round(PROJ(row.later)) : 0;
  const lost    = row.later ? Math.max(0, nowPts - latePts) : nowPts;
+ /* the other direction: the guy who survives is BETTER than the one you're
+    looking at, which means taking this one now is a reach. Worth saying out
+    loud — "about the same, safe to wait" badly undersells a 78-point gap. */
+ const better  = row.later ? latePts - nowPts : 0;
  /* a bestPick row doesn't exclude the player himself from `later` — if he's
     the guy who survives, that's a coin flip, not a promise */
  const sameGuy = row.later && row.later[0] === p[0];
@@ -2952,6 +2985,8 @@ function scoutHtml(p, ti, opts){
        ? `Nobody worth starting at ${L(row.ps)} survives to your next pick. He's the last one.`
      : sameGuy
        ? `He might still be there at your next pick — but that's a coin flip, not a plan.`
+     : better >= 12
+       ? `<b>${row.later[1]}</b> (${latePts} pts) should still be there at your next pick — <span class="swcost">that's ${better} pts better than this guy</span>. Taking him now is a reach.`
        : `Best ${L(row.ps)} left at your next pick is <b>${row.later[1]}</b> (${latePts} pts)` + (
            lost >= 12 ? ` — <span class="swcost">passing costs you ${lost} pts</span>.`
          : ` — about the same. Safe to wait.`)
