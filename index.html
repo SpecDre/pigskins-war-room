@@ -6,30 +6,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root{
-  /* chrome — black */
-  --blk:#14161b;
-  --blk2:#1e2128;         /* raised black: rail cards, inputs */
-  --blk3:#2a2e37;         /* black borders / hover */
-  --onblk:#f2f3f5;        /* text on black */
-  --onblk2:#9198a6;       /* dim text on black */
-  --onblk3:#666d7b;
-  /* board — white */
-  --wht:#ffffff;
-  --wht2:#f6f7f9;         /* stripe / taken */
-  --wht3:#eceef2;         /* hover */
-  --line:#e2e5ea;
-  --line2:#cfd4dd;
-  --ink:#14161b;
-  --ink2:#59606e;
-  --ink3:#98a0ae;
+  /* GLASS THEME — one dark translucent system instead of black chrome +
+     white board. The old names stay (hundreds of rules reference them);
+     only the values changed. "blk" = chrome glass, "wht" = board glass. */
+  --blk:rgba(13,16,24,.72);          /* chrome glass — blurred where sticky */
+  --blk2:rgba(255,255,255,.055);     /* raised: rail cards, inputs */
+  --blk3:rgba(255,255,255,.13);      /* borders / hover */
+  --onblk:#f2f4f8;                   /* text on chrome */
+  --onblk2:#9aa3b5;                  /* dim text */
+  --onblk3:#78829a;
+  /* board — was white, now glass. ink lifted to stay legible on dark */
+  --wht:rgba(18,22,31,.55);
+  --wht2:rgba(255,255,255,.045);     /* stripe / taken */
+  --wht3:rgba(255,255,255,.085);     /* hover */
+  --line:rgba(255,255,255,.085);
+  --line2:rgba(255,255,255,.17);
+  --ink:#eef1f6;
+  --ink2:#a8b0c2;
+  --ink3:#7d879e;
   /* accent */
   --red:#e5253b;
   --red-dk:#c0142a;
-  --red-lt:#ff5468;       /* red on black — lifted for contrast */
-  --red-bg:#fff1f3;
-  --grn:#12a150;
-  --amb:#dd8500;
-  --blu:#1a6fe0;
+  --red-lt:#ff5468;       /* red on dark — lifted for contrast */
+  --red-bg:rgba(229,37,59,.13);
+  --grn:#2fc46f;
+  --amb:#f5a623;
+  --blu:#5aa2ff;
   /* position pills */
   --qb:#b8145c; --rb:#00796b; --wr:#1976d2; --te:#ef6c00; --k:#6b7480; --dst:#546070;
 }
@@ -537,6 +539,68 @@ tr.diff .fkb{color:#c9a227}
 .alert.fell{background:#0d1215;border-color:#3d7f9c}
 .alert.fell .albl{color:#5aa9cc}
 .fdim{color:#7a7a7a;font-size:11.5px}
+
+/* ============================================================
+   GLASS SURFACES — everything below assumes the :root remap above.
+   The palette flip does most of the work; this section adds the
+   backdrop the glass shows through, blur on the sticky chrome, and
+   spot-fixes for rules that hardcoded white-board colors.
+   ============================================================ */
+
+/* the world behind the glass: deep charcoal with three soft glows.
+   Fixed so panels appear to slide over it. */
+body, body:has(#su:not([style*="none"])){background:#0b0e15}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+ radial-gradient(1000px 640px at 88% -12%, rgba(229,37,59,.17), transparent 62%),
+ radial-gradient(880px 620px at -12% 28%, rgba(26,111,224,.13), transparent 58%),
+ radial-gradient(760px 540px at 62% 112%, rgba(0,121,107,.12), transparent 56%),
+ linear-gradient(180deg,#0d1119,#090b10)}
+
+/* the sticky chrome is what sells the effect — board rows scroll
+   underneath it, blurred */
+header,.ct,.vsw,.rt{
+ backdrop-filter:blur(16px) saturate(1.35);
+ -webkit-backdrop-filter:blur(16px) saturate(1.35)}
+header{border-bottom-color:rgba(229,37,59,.85)}
+.rl{backdrop-filter:blur(12px) saturate(1.25);
+ -webkit-backdrop-filter:blur(12px) saturate(1.25)}
+
+/* cards get a hairline top-light, the classic glass edge */
+.nt,.or,.tb,.cd,.plnhdr,.plnproj,.scrow,.pocard,.tr{
+ border:1px solid rgba(255,255,255,.08);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 8px 24px rgba(0,0,0,.25)}
+.cd,.nt,.plnproj{border-left-width:3px}
+
+/* modal: opaque enough to read, blurred edge to feel like glass */
+.md{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.mbx{background:rgba(19,23,32,.94);
+ backdrop-filter:blur(24px) saturate(1.3);
+ -webkit-backdrop-filter:blur(24px) saturate(1.3);
+ border:1px solid rgba(255,255,255,.1);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 24px 60px rgba(0,0,0,.6)}
+
+/* draft grid: sticky headers can't be see-through or the scroll shows
+   right through the labels */
+.dg th,.dg th:first-child,.dg td.rdnum{background:rgba(12,15,22,.95)}
+.dg th{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.dg th.meCol{background:var(--red)}
+
+/* ---- spot fixes: rules that hardcoded light-board colors ---- */
+.rw.locked,.rw.locked:hover{background:repeating-linear-gradient(45deg,
+ rgba(255,255,255,.03),rgba(255,255,255,.03) 6px,
+ rgba(255,255,255,.075) 6px,rgba(255,255,255,.075) 12px)}
+.rw.trap .nm{color:#ff8a97}
+.rw.mine .nm{color:var(--red-lt)}          /* was --red-dk: unreadable on dark */
+.cell.mineC .cn{color:var(--red-lt)}
+.warnbox{border-color:rgba(229,37,59,.4);border-left-color:var(--red);color:#f2c6cc}
+.warnbox b{color:#ff8a97}
+.cell.onclk{background:rgba(245,166,35,.13)}
+.scout{background:rgba(9,11,15,.6);border:1px solid rgba(255,255,255,.07);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+/* in the rail they're tappable — read the case, tap, draft */
+#p-bs .scout{cursor:pointer;transition:border-color .12s,background .12s}
+#p-bs .scout:hover{border-color:rgba(255,84,104,.45);background:rgba(15,17,22,.75)}
+.whose.theirs{background:rgba(255,255,255,.06);color:var(--onblk2)}
 </style></head><body>
 
 <div id="su">
@@ -604,9 +668,10 @@ tr.diff .fkb{color:#c9a227}
 
 <script>
 (function(){
-  // page bg follows which screen is showing
-  const obs=()=>{const su=document.getElementById('su');
-    document.body.style.background = (su && su.style.display!=='none') ? '#14161b' : '#ffffff';};
+  // page bg follows which screen is showing.
+  // GLASS THEME: the stylesheet owns the background now (one dark gradient
+  // for both screens) — an inline value here would override it, so clear it.
+  const obs=()=>{document.body.style.background='';};
   obs();
   const _go = window.go;
   document.addEventListener('DOMContentLoaded', obs);
@@ -2621,9 +2686,11 @@ function roomHtml(ti){
 }
 
 /* how many options to show in full: 3 or 5. Andre wasn't sure which he
-   wanted, so it's a toggle rather than a decision baked into the code. */
+   wanted, so it's a toggle rather than a decision baked into the code —
+   and it remembers, so he's not re-picking it every draft session. */
 let altN = 3;
-function setAltN(n){ altN = n; bs(); }
+try{ const v=+localStorage.getItem('wr-altN'); if(v===5) altN=5 }catch(e){}
+function setAltN(n){ altN = n; try{localStorage.setItem('wr-altN',n)}catch(e){}; bs(); }
 
 /* which position is Andre second-guessing right now? null = none */
 let forkPos = null;
@@ -2969,7 +3036,7 @@ function scoutHtml(p, ti, opts){
     the guy who survives, that's a coin flip, not a promise */
  const sameGuy = row.later && row.later[0] === p[0];
 
- let h = `<div class="scout">
+ let h = `<div class="scout" data-r="${p[0]}">
    <div class="scouthdr ${isRec?'rec':''}">${
      o.label ? o.label : isRec ? "★ THIS IS THE APP'S PICK" : 'SCOUTING REPORT'
    }</div>
@@ -3422,7 +3489,18 @@ document.addEventListener('keydown',e=>{
 document.getElementById('bd').onclick=e=>{const r=e.target.closest('.rw');if(r)op(+r.dataset.r)};
 document.getElementById('bd').onkeydown=e=>{const r=e.target.closest('.rw');
  if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();op(+r.dataset.r)}};
-document.getElementById('p-bs').onclick=e=>{const b=e.target.closest('.ba');if(b)op(+b.dataset.r)};
+document.getElementById('p-bs').onclick=e=>{
+ const b=e.target.closest('.ba');if(b){op(+b.dataset.r);return}
+ /* the "other options" cards draft too — read the case, tap, confirm.
+    Only in the rail: the modal's own scout card has no handler. */
+ const s=e.target.closest('.scout');if(s&&s.dataset.r)op(+s.dataset.r)};
+/* '/' jumps to player search (desktop nicety; phones have thumbs) */
+document.addEventListener('keydown',e=>{
+ if(e.key!=='/'||e.ctrlKey||e.metaKey)return;
+ const q=document.getElementById('q');
+ if(!q||/INPUT|TEXTAREA/.test(document.activeElement.tagName))return;
+ if(document.getElementById('wr').style.display==='none'||!document.getElementById('wr').style.display)return;
+ e.preventDefault();q.focus()});
 document.querySelector('.ct').onclick=e=>{const b=e.target.closest('.fb');if(!b)return;
  flt=b.dataset.p;document.querySelectorAll('.fb').forEach(x=>x.classList.toggle('on2',x===b));bd()};
 document.getElementById('q').oninput=bd;
@@ -3470,7 +3548,7 @@ function hardReset(){
  order=DEF.slice(); meIdx=6;
  document.getElementById('wr').style.display='none';
  document.getElementById('su').style.display='block';
- document.body.style.background='#14161b';
+ document.body.style.background='';   /* stylesheet owns the glass backdrop */
  const md=document.getElementById('md'); if(md)md.classList.remove('on2');
  pend=null;
  const q=document.getElementById('q'); if(q)q.value='';
@@ -3480,7 +3558,7 @@ function hardReset(){
 
 function go(){document.getElementById('su').style.display='none';
  document.getElementById('wr').style.display='block';
- document.body.style.background='#ffffff';
+ document.body.style.background='';   /* stylesheet owns the glass backdrop */
  if(auto)runAuto(); else pt()}
 // boot: wait for DOM then restore or fresh setup
 function boot(){
