@@ -468,6 +468,30 @@ header{background:var(--blk);border-bottom:3px solid var(--red);padding:12px 16p
 .tply b{color:#ff5468;font-weight:800}
 .tpwhy{margin-top:11px;font:500 13.5px/1.55 'Inter',sans-serif;color:#b8b8b8}
 
+/* ===== SCOUTING REPORT — the same read, for whoever you tap on the board.
+   Deliberately dark inside the light modal: every badge (injury, bye
+   conflict, stack risk) is built with dark-panel colors, so putting them on
+   a dark card means they look identical to the recommendation panel instead
+   of needing a second set of light-mode colors. ===== */
+.scout{background:#111214;border-radius:10px;padding:13px 14px;margin:10px 0 12px}
+.scouthdr{font:800 10px/1 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;
+ color:#ff5468;margin-bottom:7px}
+.scouthdr.rec{color:#5fa832}
+.scout .tpname{font-size:21px;margin-bottom:5px}
+.scoutwait{margin-top:11px;padding-top:10px;border-top:1px solid #26282c}
+.swl{font:800 10px/1 'Inter',sans-serif;letter-spacing:.12em;text-transform:uppercase;
+ color:#8a8a8a;margin-bottom:5px}
+.swr{font:500 12.5px/1.5 'Inter',sans-serif;color:#b8b8b8}
+.swr b{color:#fff;font-weight:700}
+.swcost{color:#ff7a5c;font-weight:700}
+/* top 3 / top 5 toggle, sitting in the section header */
+.altn{float:right;display:inline-flex;gap:4px}
+.anb{background:#1a1c1f;border:1px solid #2e3136;color:#8a8a8a;border-radius:4px;
+ padding:2px 7px;font:700 9.5px/1.4 'Inter',sans-serif;letter-spacing:.06em;
+ text-transform:uppercase;cursor:pointer}
+.anb:hover{color:#ccc;border-color:#3d4046}
+.anb.on{background:#e5253b;border-color:#e5253b;color:#fff}
+
 /* ===== THE FORK — "rather have a RB?" show both futures ===== */
 .fkbtns{margin-top:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .fkask{font:600 11px/1 'Inter',sans-serif;color:#6e6e6e;letter-spacing:.05em;
@@ -571,6 +595,7 @@ tr.diff .fkb{color:#c9a227}
  <div class="whose" id="whose"></div>
  <div class="mt" id="mdt"></div><div class="ms" id="mds"></div>
  <div id="mdw"></div>
+ <div id="mdscout"></div>
  <div id="playouts"></div>
  <button class="mbt big" id="confirmBtn"></button>
  <button class="ovr" id="ovrToggle">Wrong team? Assign to someone else</button>
@@ -2595,6 +2620,11 @@ function roomHtml(ti){
  return h;
 }
 
+/* how many options to show in full: 3 or 5. Andre wasn't sure which he
+   wanted, so it's a toggle rather than a decision baked into the code. */
+let altN = 3;
+function setAltN(n){ altN = n; bs(); }
+
 /* which position is Andre second-guessing right now? null = none */
 let forkPos = null;
 function setFork(ps){ forkPos = (forkPos===ps ? null : ps); bs(); }
@@ -2636,6 +2666,24 @@ function bs(){
    ${upsideMode ? `<div style="margin-top:6px;padding:5px 10px;background:#0a1a0a;border-left:3px solid #5fa832;border-radius:4px;font-size:11px;color:#8fc88f">⚡ <b>Upside mode</b> — core is set. Swing for ceiling now.</div>` : ''}
    ${forkPos ? forkHtml(forkFor(m, forkPos)) : ''}
   </div>`;
+
+ /* ---------- THE RUNNERS-UP ----------
+    bestPick() keeps one scored row per position, so rows[1..] are the real
+    alternatives — the best guy at each OTHER position. Same depth as the
+    headline, because "why not him instead?" is the actual question. */
+ {
+  const alts = rows.filter(x=>x.score > -1e8).slice(1, altN);
+  if(alts.length){
+   h += `<div class="plnsec">Other options
+     <span class="altn">
+      <button class="anb ${altN===3?'on':''}" onclick="setAltN(3)">top 3</button>
+      <button class="anb ${altN===5?'on':''}" onclick="setAltN(5)">top 5</button>
+     </span></div>`;
+   alts.forEach((x,i)=>{
+    h += scoutHtml(x.now, m, {row:x, rec:r, label:`#${i+2} OPTION`});
+   });
+  }
+ }
 
  /* ---------- THE COST OF WAITING, position by position ---------- */
  h += `<div class="plnsec">If you wait, here's what you lose</div>`;
@@ -2838,6 +2886,79 @@ function teammateWarning(p, ti){
 
 function playerBadges(p, ti){
  return dualThreatBadge(p) + playoffBadge(p) + targetBadge(p) + injuryBadge(p) + byeWarning(p, ti) + teammateWarning(p, ti);
+}
+
+/* ============================================================
+   SCOUTING REPORT — the recommendation panel's read, on demand
+
+   bestPick() only ever builds a reasoning row for the BEST guy at each
+   position, which is why the deep breakdown used to exist for exactly one
+   player. rowFor() builds that same row for anybody, so whyText() can
+   describe a player Andre picked out himself instead of one we chose.
+   ============================================================ */
+function rowFor(ti, p){
+ const ps = p[3];
+ const at = av().filter(x=>x[3]===ps).sort((a,b)=>PROJ(b)-PROJ(a));
+ /* the best guy at his position who'd still be there at my next turn --
+    excluding this player himself, since the question is "if I pass on HIM" */
+ const later = survivesToNextPick(ti, ps)
+                 .filter(x=>!isTrap(x) && x[0]!==p[0])
+                 .sort((a,b)=>PROJ(b)-PROJ(a))[0];
+ const gainNow   = lineupGain(ti, p);
+ const gainLater = later ? lineupGain(ti, later) : 0;
+ return {
+  ps, now:p, later,
+  gainNow, gainLater,
+  cost: gainNow - gainLater,
+  startable: at.filter(x=>isStartable(x)).length,
+  need: shy(ti, ps),
+  survivors: survivesToNextPick(ti, ps).length
+ };
+}
+
+/* The full read for one player.
+   opts.row   — a reasoning row bestPick() already built. Pass it when you
+                have one: rowFor() re-runs survivesToNextPick/lineupGain, and
+                doing that per card is exactly the kind of cost that got the
+                full playout dropped for being too slow on a phone.
+   opts.rec   — bestPick() result, so we can mark the app's own pick.
+   opts.label — override the header ("#2 OPTION"). */
+function scoutHtml(p, ti, opts){
+ const o = opts || {};
+ const L = q => q==='DST' ? 'DEF' : q;
+ const row = o.row || rowFor(ti, p);
+ const rec = o.rec;
+ const isRec = rec && rec.top && rec.top.now && rec.top.now[0] === p[0];
+ const nowPts  = Math.round(PROJ(p));
+ const latePts = row.later ? Math.round(PROJ(row.later)) : 0;
+ const lost    = row.later ? Math.max(0, nowPts - latePts) : nowPts;
+ /* a bestPick row doesn't exclude the player himself from `later` — if he's
+    the guy who survives, that's a coin flip, not a promise */
+ const sameGuy = row.later && row.later[0] === p[0];
+
+ let h = `<div class="scout">
+   <div class="scouthdr ${isRec?'rec':''}">${
+     o.label ? o.label : isRec ? "★ THIS IS THE APP'S PICK" : 'SCOUTING REPORT'
+   }</div>
+   <div class="tpname"><span class="plnpos ${p[3]}">${L(p[3])}</span> ${p[1]}</div>
+   <div class="tpsub">${p[2]} · goes around pick ${p[5]} · bye ${p[8]||'—'}</div>
+   <div class="tpwhy">${whyText(row, null, ti)}</div>`;
+
+ /* the cost-of-waiting question, asked about THIS guy specifically */
+ h += `<div class="scoutwait">
+   <div class="swl">If you pass on him</div>
+   <div class="swr">${
+     !row.later
+       ? `Nobody worth starting at ${L(row.ps)} survives to your next pick. He's the last one.`
+     : sameGuy
+       ? `He might still be there at your next pick — but that's a coin flip, not a plan.`
+       : `Best ${L(row.ps)} left at your next pick is <b>${row.later[1]}</b> (${latePts} pts)` + (
+           lost >= 12 ? ` — <span class="swcost">passing costs you ${lost} pts</span>.`
+         : ` — about the same. Safe to wait.`)
+   }</div>
+  </div>`;
+
+ return h + `</div>`;
 }
 
 function handcuffNote(p, ti){
@@ -3160,6 +3281,15 @@ function op(rk){
    ${alt?`<b>${alt[1]}</b> (${alt[3]}) is sitting right there instead.`:''}</div>`;
  }
  document.getElementById('mdw').innerHTML=warn;
+
+ /* ---- SCOUTING REPORT: the same read the recommendation panel gives,
+    for whoever you just tapped. Wrapped because it leans on the whole
+    projection engine and a bad row shouldn't cost you the draft button. ---- */
+ {
+  const sc=document.getElementById('mdscout');
+  try{ sc.innerHTML = scoutHtml(p, o, {rec:bestPick(o)}); }
+  catch(err){ sc.innerHTML=''; }
+ }
 
  /* ---- THE PLAYOUTS: only for YOUR picks, and only worth it early ---- */
  const po=document.getElementById('playouts');
