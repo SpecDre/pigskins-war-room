@@ -22,8 +22,8 @@
   --line:rgba(255,255,255,.085);
   --line2:rgba(255,255,255,.17);
   --ink:#eef1f6;
-  --ink2:#a8b0c2;
-  --ink3:#7d879e;
+  --ink2:#b3bbcc;
+  --ink3:#97a1b6;        /* lifted: the panel scrim is lighter now */
   /* accent */
   --red:#e5253b;
   --red-dk:#c0142a;
@@ -586,17 +586,52 @@ header{border-bottom-color:rgba(229,37,59,.85)}
  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 10px 30px rgba(0,0,0,.32)}
 .cd,.nt,.plnproj{border-left-width:3px}
 
-/* The two big panels are translucent so the backdrop reads through them.
-   No blur on .bd: it is a 100vh+ scrolling surface and blurring it janks
-   on a phone. The blur lives on the chrome and cards, which are small
-   enough to afford it.
+/* FLOATING PANELS — the piece the first two attempts were missing.
+   The board and rail covered the viewport edge to edge, so the colored
+   backdrop was never visible anywhere and nothing read as sitting ON
+   something. Insetting them opens gutters where the backdrop shows
+   through directly, which is what makes the panels look like glass laid
+   over a surface rather than just dark boxes.
 
-   A DARK scrim, not a white wash: the backdrop is bright now, and light
-   text over an unmuted glow is where legibility dies. The scrim knocks the
-   backdrop back so hue still reads through but text stays crisp. */
-.bd{background:rgba(10,13,21,.78)}
-.rl{background:rgba(10,13,21,.66)}
-.gridwrap{background:rgba(10,13,21,.78)}
+   No overflow:hidden on the column — .ct sticks to the top while scrolling
+   and any clipping ancestor would silently break that. Corners are
+   rounded on the first and last children instead. */
+.gr{padding:12px;gap:12px;align-items:start}
+.gr>div:first-child,.rl{
+ border:1px solid rgba(255,255,255,.13);
+ border-radius:16px;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 18px 50px rgba(0,0,0,.42)}
+.gr>div:first-child{background:rgba(10,13,21,.62);overflow:visible}
+.vsw{border-radius:15px 15px 0 0}
+.bd,.gridwrap{background:transparent;border-radius:0 0 15px 15px}
+.bd{min-height:60vh}
+.rl{background:rgba(10,13,21,.5);border-left:1px solid rgba(255,255,255,.13);
+ top:calc(var(--hh,0px) + 12px);
+ max-height:calc(100vh - var(--hh,0px) - 24px);overflow-y:auto}
+.rt{border-radius:15px 15px 0 0}
+@media(max-width:900px){
+ .gr{padding:8px;gap:8px}
+ .rl{top:auto;max-height:none;border-radius:16px}
+}
+
+/* PHONE BOARD WIDTH — pre-existing bug, not caused by the glass work.
+   The row grid's fixed columns plus the name's min-content came to ~446px,
+   so on a 375px phone the whole board pushed the page into horizontal
+   scroll. Grid items default to min-width:auto, so the name track refused
+   to shrink. Tightening the fixed columns and letting the name ellipsis
+   keeps everything on screen. */
+@media(max-width:560px){
+ .bd{padding:0 10px 40px}
+ /* the "who took him" column is dropped: taken rows are hidden by default,
+    and the Log and Rosters tabs both answer that question. Its 44px goes to
+    the player name, which is the one thing you cannot afford to truncate. */
+ .rw{grid-template-columns:26px 1fr 34px 34px 14px 38px 20px;gap:5px;padding:10px 4px}
+ .tk2{display:none}
+ .rw>*{min-width:0}
+ .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .tr{padding:9px 10px}
+ .tr em{display:none}          /* tier subtitle is the first thing to go */
+}
 
 /* modal: opaque enough to read, blurred edge to feel like glass */
 .md{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
