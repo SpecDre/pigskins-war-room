@@ -232,6 +232,11 @@ header{background:var(--blk);border-bottom:3px solid var(--red);padding:12px 16p
  align-items:baseline;margin-bottom:4px}
 .tn2.me{color:var(--red-lt)}
 .tn2 small{font-family:'JetBrains Mono';font-size:9px;color:var(--onblk3);font-weight:500}
+/* editable team names — inline input on the Rosters tab, rename mid-draft */
+.tnedit{background:transparent;border:0;border-bottom:1px dashed transparent;color:inherit;
+ font:inherit;padding:1px 2px;max-width:150px;-webkit-user-select:text;user-select:text;
+ touch-action:manipulation}
+.tnedit:focus{outline:0;border-bottom-color:var(--red);background:rgba(255,255,255,.06)}
 .pk{display:flex;gap:7px;padding:5px 0;font-size:12px;align-items:center;
  border-bottom:1px solid var(--blk3);color:var(--onblk)}
 .pk:last-child{border-bottom:0}
@@ -462,6 +467,14 @@ header{background:var(--blk);border-bottom:3px solid var(--red);padding:12px 16p
 /* ===== THE PICK — the one thing Andre looks at on draft night ===== */
 .tphdr{font:800 11px/1 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;
  color:#ff5468;margin-bottom:9px}
+/* tappable pick recommendation — the name and a big Draft button both open
+   the pick modal (iOS needs a real target; a bare div swallows the tap) */
+.tpclick{cursor:pointer;-webkit-tap-highlight-color:rgba(229,37,59,.25)}
+.tpclick:active{opacity:.7}
+.tpdraft{display:block;width:100%;margin-top:12px;padding:14px;background:var(--red);
+ color:#fff;border:0;border-radius:8px;font:800 16px 'Inter',sans-serif;
+ cursor:pointer;-webkit-tap-highlight-color:transparent;letter-spacing:-.01em}
+.tpdraft:active{transform:scale(.985);background:#c41f33}
 .tpname{font:800 26px/1.15 'Inter',sans-serif;color:#fff;letter-spacing:-.02em;
  display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px}
 .tpsub{font:500 12.5px/1.4 'JetBrains Mono',monospace;color:#8a8a8a}
@@ -2786,8 +2799,9 @@ function bs(){
  const p = top.now;
  h += `<div class="tp ${onClock?'live':''}">
    <div class="tphdr">${onClock ? 'TAKE HIM' : 'if it were your pick'}</div>
-   <div class="tpname"><span class="plnpos ${p[3]}">${L(p[3])}</span> ${p[1]}</div>
+   <div class="tpname tpclick" data-r="${p[0]}"><span class="plnpos ${p[3]}">${L(p[3])}</span> ${p[1]}</div>
    <div class="tpsub">${p[2]} · goes around pick ${p[5]} · bye ${p[8]}</div>
+   ${onClock ? `<button class="tpdraft" data-r="${p[0]}">Draft ${p[1]} →</button>` : ''}
    ${(()=>{
      /* "nah, I want a ___ instead" — tap a position, see both futures */
      const opts = ['RB','WR','TE','QB'].filter(q=>q!==p[3] && legal(m,q)
@@ -3218,7 +3232,7 @@ function rs(){let h='';const o=clk();
  teams.forEach((t,i)=>{
   const r=ros(i).slice().sort((a,b)=>POS.indexOf(a[3])-POS.indexOf(b[3]));
   h+=`<div class="tb"><div class="tn2 ${t.isMe?'me':''}">
-   <span>${t.name}${i===o?' ⏱':''}</span>
+   <span><input class="tnedit" data-t="${i}" value="${String(t.name).replace(/"/g,'&quot;')}">${i===o?' ⏱':''}</span>
    <small>${r.length}/${RD} · ${lft(i)} left</small></div>`;
   /* READ ON THIS MANAGER — inferred from what they've actually done,
      not from the hidden dials. You only see what the board shows. */
@@ -3560,10 +3574,20 @@ document.getElementById('bd').onclick=e=>{const r=e.target.closest('.rw');if(r)o
 document.getElementById('bd').onkeydown=e=>{const r=e.target.closest('.rw');
  if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();op(+r.dataset.r)}};
 document.getElementById('p-bs').onclick=e=>{
+ /* the big recommendation name and the Draft button both open the pick modal */
+ const d=e.target.closest('.tpdraft'); if(d){op(+d.dataset.r);return}
+ const n=e.target.closest('.tpclick'); if(n){op(+n.dataset.r);return}
  const b=e.target.closest('.ba');if(b){op(+b.dataset.r);return}
  /* the "other options" cards draft too — read the case, tap, confirm.
     Only in the rail: the modal's own scout card has no handler. */
  const s=e.target.closest('.scout');if(s&&s.dataset.r)op(+s.dataset.r)};
+/* rename a team mid-draft from the Rosters tab — no reset needed */
+document.getElementById('p-rs').addEventListener('input', e=>{
+ const i=e.target.closest('.tnedit');
+ if(!i) return;
+ const ti=+i.dataset.t;
+ if(teams[ti]){ teams[ti].name=i.value; sv(); }
+});
 /* '/' jumps to player search (desktop nicety; phones have thumbs) */
 document.addEventListener('keydown',e=>{
  if(e.key!=='/'||e.ctrlKey||e.metaKey)return;
