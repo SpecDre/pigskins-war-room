@@ -245,6 +245,12 @@ header{background:var(--blk);border-bottom:3px solid var(--red);padding:12px 16p
 .pk .pp.QB{background:var(--qb)}.pk .pp.RB{background:var(--rb)}.pk .pp.WR{background:var(--wr)}
 .pk .pp.TE{background:var(--te)}.pk .pp.K{background:var(--k)}.pk .pp.DST{background:var(--dst)}
 .pk .pnm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+/* rostered players are tappable for a read-only info card */
+#p-rs .pk[data-r]{cursor:pointer;border-radius:5px;padding-left:4px;padding-right:4px;
+ margin:0 -4px;transition:background .1s}
+#p-rs .pk[data-r]:hover{background:rgba(255,255,255,.06)}
+#p-rs .pk[data-r] .pnm{color:var(--onblk)}
+#p-rs .pk[data-r]::after{content:'ⓘ';margin-left:6px;color:var(--onblk3);font-size:11px}
 .pk .prk{font-family:'JetBrains Mono';font-size:9px;color:var(--onblk3)}
 .em{font-size:11px;color:var(--onblk3);padding:8px 0;font-style:italic}
 
@@ -748,6 +754,14 @@ header{border-bottom-color:rgba(229,37,59,.85)}
  <button class="ovr" id="ovrToggle">Wrong team? Assign to someone else</button>
  <div class="drawer" id="drawer"></div>
  <button class="mc" id="mdc">Cancel</button></div></div>
+
+<!-- read-only player info: separate from the draft modal so it never touches
+     the draft/undo flow. Opened by tapping a rostered player. -->
+<div class="md" id="pinfo"><div class="mbx">
+ <div class="whose theirs" id="piwho"></div>
+ <div class="mt" id="pit"></div><div class="ms" id="pis"></div>
+ <div id="pibody"></div>
+ <button class="mbt big" id="piclose">Close</button></div></div>
 
 <script>
 (function(){
@@ -3010,11 +3024,12 @@ function byeWarning(p, ti){
  const bye=p[8]; if(!bye) return '';
  try{
   const starters=scoreLineup(ros(ti)).starters.filter(Boolean);
-  const onBye=starters.filter(s=>s[8]===bye&&s[0]!==p[0]).length;
+  const conflict=starters.filter(s=>s[8]===bye&&s[0]!==p[0]);
+  const onBye=conflict.length;
   if(onBye>=2)
    return '<div style="margin-top:6px;padding:6px 10px;background:#1a1208;border-left:3px solid #e0a030;border-radius:4px;font-size:12px;color:#f0c060">'
-    +'⚠️ <b>Bye week '+bye+' conflict:</b> You already have '+onBye
-    +' starter'+(onBye>1?'s':'')+' on this bye — taking him makes '+(onBye+1)+' off the same week.</div>';
+    +'⚠️ <b>Bye week '+bye+' conflict:</b> You already start '+onBye
+    +' on this bye ('+conflict.map(s=>s[1]).join(', ')+') — taking him makes '+(onBye+1)+' off the same week.</div>';
  }catch(e){}
  return '';
 }
@@ -3040,6 +3055,31 @@ function teammateWarning(p, ti){
 
 function playerBadges(p, ti){
  return dualThreatBadge(p) + playoffBadge(p) + targetBadge(p) + injuryBadge(p) + byeWarning(p, ti) + teammateWarning(p, ti);
+}
+
+/* READ-ONLY PLAYER INFO — tap a rostered player to see what we already know
+   about him: projection, ranks, and every flag (injury, bye conflict with
+   his own teammates on this roster, stack risk). Deliberately NOT op():
+   op() on a drafted player prompts to undo the pick. This just informs. */
+function pinfo(rk){
+ const p = P.find(x=>x[0]===rk); if(!p) return;
+ const owned = tkn(rk);
+ const ti = owned ? tkB(rk) : meI();      /* roster context for bye/stack flags */
+ const L = q => q==='DST' ? 'DEF' : q;
+ document.getElementById('piwho').textContent = owned ? `On ${teams[ti].name}` : 'Player info';
+ document.getElementById('pit').textContent = p[1];
+ const bits = [];
+ if(p[13]) bits.push(`ESPN ${p[13]}`);
+ if(p[10]) bits.push(`Yates ${p[10]}`);
+ if(p[7])  bits.push(`consensus ${p[7]}`);
+ document.getElementById('pis').textContent =
+   `${p[2]} · ${L(p[3])} · bye ${p[8]||'—'} · ${Math.round(PROJ(p))} proj`
+   + (bits.length ? ` · ${bits.join(' · ')}` : '');
+ const badges = playerBadges(p, ti);
+ document.getElementById('pibody').innerHTML =
+   `<div class="scout">${badges
+     || '<div class="tpwhy" style="color:#8a8a8a">No flags — no injury history, bye conflict, or stack risk on this roster.</div>'}</div>`;
+ document.getElementById('pinfo').classList.add('on2');
 }
 
 /* ============================================================
@@ -3254,7 +3294,7 @@ function rs(){let h='';const o=clk();
    h+=`<span class="np ${s===0?'ok':''}">${p==='DST'?'DEF':p} ${s===0?'✓':s}</span>`});
   h+=`</div>`;
   if(!r.length)h+=`<div class="em">No picks yet</div>`;
-  else r.forEach(p=>{h+=`<div class="pk"><span class="pp ${p[3]}">${p[3]==='DST'?'DEF':p[3]}</span>
+  else r.forEach(p=>{h+=`<div class="pk" data-r="${p[0]}"><span class="pp ${p[3]}">${p[3]==='DST'?'DEF':p[3]}</span>
    <span class="pnm">${p[1]}</span><span class="prk">${p[2]||''}</span></div>`});
   h+=`</div>`});
  document.getElementById('p-rs').innerHTML=h}
@@ -3588,6 +3628,15 @@ document.getElementById('p-rs').addEventListener('input', e=>{
  const ti=+i.dataset.t;
  if(teams[ti]){ teams[ti].name=i.value; sv(); }
 });
+/* tap a rostered player -> read-only info card (never the tnedit input) */
+document.getElementById('p-rs').addEventListener('click', e=>{
+ if(e.target.closest('.tnedit')) return;
+ const row=e.target.closest('.pk[data-r]');
+ if(row) pinfo(+row.dataset.r);
+});
+/* close the info card */
+document.getElementById('piclose').onclick=()=>document.getElementById('pinfo').classList.remove('on2');
+document.getElementById('pinfo').onclick=e=>{if(e.target.id==='pinfo')e.target.classList.remove('on2')};
 /* '/' jumps to player search (desktop nicety; phones have thumbs) */
 document.addEventListener('keydown',e=>{
  if(e.key!=='/'||e.ctrlKey||e.metaKey)return;
